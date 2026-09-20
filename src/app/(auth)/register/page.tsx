@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Music, Mail, Lock, User, ArrowRight, Loader2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
+import { signUp } from "@/lib/auth/client";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -34,43 +35,17 @@ export default function RegisterPage() {
     setIsLoading(true);
     
     try {
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password,
-        }),
+      const { data, error: signUpError } = await signUp.email({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Registrasi gagal");
+      if (signUpError) {
+        throw new Error(signUpError.message || "Registrasi gagal");
       }
 
-      // Auto login after register
-      const loginResponse = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
-      });
-
-      if (!loginResponse.ok) {
-        // Register success but login failed, redirect to login
-        router.push("/login");
-        return;
-      }
-
-      // Redirect to dashboard
+      // Redirect to dashboard after successful registration
       router.push("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");

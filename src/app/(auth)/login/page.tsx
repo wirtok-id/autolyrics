@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Music, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Music, Mail, Lock, ArrowRight, Loader2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
+import { signIn } from "@/lib/auth/client";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [formData, setFormData] = useState({
@@ -18,10 +21,23 @@ export default function LoginPage() {
     setError("");
     setIsLoading(true);
     
-    // TODO: Implement actual login
-    setTimeout(() => {
-      window.location.href = "/dashboard";
-    }, 1500);
+    try {
+      const { data, error: signInError } = await signIn.email({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (signInError) {
+        throw new Error(signInError.message || "Login gagal");
+      }
+
+      // Redirect to dashboard after successful login
+      router.push("/dashboard");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -53,9 +69,14 @@ export default function LoginPage() {
           </p>
 
           {error && (
-            <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-              {error}
-            </div>
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center gap-2"
+            >
+              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+              <p className="text-sm text-red-400">{error}</p>
+            </motion.div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">

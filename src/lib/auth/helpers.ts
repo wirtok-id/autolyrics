@@ -1,6 +1,6 @@
 import { auth } from "./index";
 import { db } from "../db/client";
-import { users, sessions } from "../db/schema";
+import { users } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { getNextMondayReset } from "../utils";
 
@@ -41,7 +41,7 @@ export async function registerUser(name: string, email: string, password: string
     return {
       success: true,
       user: result.user,
-      session: result.session,
+      token: result.token,
     };
   } catch (error) {
     console.error("Register error:", error);
@@ -62,7 +62,7 @@ export async function loginUser(email: string, password: string) {
     return {
       success: true,
       user: result.user,
-      session: result.session,
+      token: result.token,
     };
   } catch (error) {
     console.error("Login error:", error);

@@ -19,6 +19,20 @@ export async function getUserWithFreshPoints(userId: string) {
   const now = new Date();
   const resetTime = user.pointsResetAt;
 
+  // If no reset time set, set it now
+  if (!resetTime) {
+    const maxPoints = getMaxPoints(user.tier as "free" | "friend" | "family");
+    const nextReset = getNextMondayReset();
+    await db
+      .update(users)
+      .set({
+        points: maxPoints,
+        pointsResetAt: nextReset,
+      })
+      .where(eq(users.id, userId));
+    return { ...user, points: maxPoints, pointsResetAt: nextReset };
+  }
+
   // Check if points need to be reset (new week)
   if (now >= resetTime) {
     const maxPoints = getMaxPoints(user.tier as "free" | "friend" | "family");

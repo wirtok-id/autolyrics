@@ -1,0 +1,265 @@
+﻿========================================
+AUTOLYRICS WATCHER LOG
+========================================
+Start    : 2026-09-20 20:08:05
+End      : 2026-09-21 02:08:04
+Duration : 6 jam
+Root     : E:\autolyrics
+Log File : E:\autolyrics\watch-log-20260920-200804.txt
+========================================
+
+[20:08:12] Snapshot awal: 50 file di-track
+
+[20:08:50] (1 perubahan, sisa 05:59:22)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:09:27] (1 perubahan, sisa 05:58:44)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:10:04] (2 perubahan, sisa 05:58:06)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+  [NEW]     E:\autolyrics\src\lib\db\test-register.ts
+
+[20:10:41] (3 perubahan, sisa 05:57:30)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+  [MODIFY]  E:\autolyrics\src\lib\db\test-register.ts
+  [NEW]     E:\autolyrics\src\lib\db\verify-db.ts
+
+[20:11:17] (1 perubahan, sisa 05:56:53)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:11:54] (2 perubahan, sisa 05:56:17)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+  [NEW]     E:\autolyrics\src\lib\db\fix-test-user.ts
+
+[20:12:30] (1 perubahan, sisa 05:55:40)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:13:07] (1 perubahan, sisa 05:55:04)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:13:43] (3 perubahan, sisa 05:54:27)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+  [MODIFY]  E:\autolyrics\src\app\(dashboard)\dashboard\page.tsx
+  [NEW]     E:\autolyrics\src\app\api\dashboard\route.ts
+
+[20:14:21] (1 perubahan, sisa 05:53:51)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:14:58] (1 perubahan, sisa 05:53:13)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:15:35] (1 perubahan, sisa 05:52:36)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:16:11] (1 perubahan, sisa 05:51:59)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:16:48] (1 perubahan, sisa 05:51:23)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:17:24] (3 perubahan, sisa 05:50:46)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+  [MODIFY]  E:\autolyrics\src\app\(dashboard)\create\page.tsx
+  [MODIFY]  E:\autolyrics\src\app\api\upload\presign\route.ts
+
+[20:18:01] (1 perubahan, sisa 05:50:10)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:18:37] (2 perubahan, sisa 05:49:33)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+  [MODIFY]  E:\autolyrics\src\app\api\render\create\route.ts
+
+[20:19:14] (1 perubahan, sisa 05:48:56)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:19:50] (1 perubahan, sisa 05:48:20)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:20:27] (1 perubahan, sisa 05:47:43)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:21:04] (1 perubahan, sisa 05:47:07)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:21:40] (1 perubahan, sisa 05:46:30)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:22:17] (1 perubahan, sisa 05:45:54)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:22:54] (2 perubahan, sisa 05:45:17)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+  [MODIFY]  E:\autolyrics\src\app\(dashboard)\result\[id]\page.tsx
+
+[20:23:33] (2 perubahan, sisa 05:44:40)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+  [MODIFY]  E:\autolyrics\src\app\api\render\status\[id]\route.ts
+
+[20:24:10] (1 perubahan, sisa 05:44:00)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:24:47] (2 perubahan, sisa 05:43:24)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+  [NEW]     E:\autolyrics\src\app\api\sync\whisper\route.ts
+
+[20:25:24] (2 perubahan, sisa 05:42:47)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+  [MODIFY]  E:\autolyrics\src\lib\db\schema.ts
+
+[20:26:01] (2 perubahan, sisa 05:42:10)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+  [MODIFY]  E:\autolyrics\src\app\api\render\create\route.ts
+
+[20:26:38] (1 perubahan, sisa 05:41:32)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:27:15] (2 perubahan, sisa 05:40:56)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+  [NEW]     E:\autolyrics\src\lib\render\index.ts
+
+[20:27:52] (2 perubahan, sisa 05:40:19)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+  [MODIFY]  E:\autolyrics\src\app\api\render\create\route.ts
+
+[20:28:29] (2 perubahan, sisa 05:39:42)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+  [MODIFY]  E:\autolyrics\src\app\api\render\create\route.ts
+
+[20:29:06] (2 perubahan, sisa 05:39:05)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+  [MODIFY]  E:\autolyrics\src\app\api\render\create\route.ts
+
+[20:29:44] (1 perubahan, sisa 05:38:28)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:30:20] (1 perubahan, sisa 05:37:50)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:30:57] (1 perubahan, sisa 05:37:13)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:31:34] (1 perubahan, sisa 05:36:37)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:32:11] (3 perubahan, sisa 05:36:00)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+  [NEW]     E:\autolyrics\src\app\(admin)\admin\page.tsx
+  [NEW]     E:\autolyrics\src\app\api\admin\route.ts
+
+[20:32:47] (2 perubahan, sisa 05:35:23)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+  [NEW]     E:\autolyrics\src\app\api\admin\users\route.ts
+
+[20:33:25] (2 perubahan, sisa 05:34:47)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+  [MODIFY]  E:\autolyrics\src\middleware.ts
+
+[20:34:02] (1 perubahan, sisa 05:34:09)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:34:39] (1 perubahan, sisa 05:33:32)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:35:15] (1 perubahan, sisa 05:32:55)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:35:51] (1 perubahan, sisa 05:32:19)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:36:28] (1 perubahan, sisa 05:31:43)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:37:04] (1 perubahan, sisa 05:31:06)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:37:40] (1 perubahan, sisa 05:30:30)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:38:17] (1 perubahan, sisa 05:29:54)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:38:53] (1 perubahan, sisa 05:29:17)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+
+========================================
+[PROGRESS] 50 iterasi, total 59 file di-track
+Sisa waktu: 05:29:17
+========================================
+
+[20:39:30] (1 perubahan, sisa 05:28:41)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:40:06] (1 perubahan, sisa 05:28:04)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:40:43] (1 perubahan, sisa 05:27:28)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:41:19] (1 perubahan, sisa 05:26:51)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:41:55] (1 perubahan, sisa 05:26:15)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:42:32] (1 perubahan, sisa 05:25:39)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:43:08] (1 perubahan, sisa 05:25:02)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:43:45] (1 perubahan, sisa 05:24:25)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:44:21] (1 perubahan, sisa 05:23:49)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:44:58] (1 perubahan, sisa 05:23:13)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:45:34] (1 perubahan, sisa 05:22:36)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:46:10] (1 perubahan, sisa 05:22:00)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:46:46] (1 perubahan, sisa 05:21:24)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:47:23] (1 perubahan, sisa 05:20:47)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:47:59] (1 perubahan, sisa 05:20:11)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:48:36] (1 perubahan, sisa 05:19:34)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:49:12] (1 perubahan, sisa 05:18:58)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:49:48] (1 perubahan, sisa 05:18:22)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:50:25] (1 perubahan, sisa 05:17:46)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:51:01] (1 perubahan, sisa 05:17:09)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:51:38] (1 perubahan, sisa 05:16:33)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+[20:52:14] (1 perubahan, sisa 05:15:56)
+  [MODIFY]  E:\autolyrics\watch-log-20260920-200804.txt
+
+
+========================================
+SELESAI
+========================================
+End time : 2026-09-20 20:52:17
+Total iterasi: 73
+Total file di-track: 59
+Log file : E:\autolyrics\watch-log-20260920-200804.txt
+========================================

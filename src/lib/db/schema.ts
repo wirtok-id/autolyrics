@@ -20,7 +20,6 @@ export const users = pgTable("users", {
     .$defaultFn(() => createId()),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
-  passwordHash: text("password_hash").notNull(),
   name: text("name").notNull(),
   image: text("image"),
   role: text("role", { enum: ["user", "admin"] })
@@ -30,9 +29,9 @@ export const users = pgTable("users", {
     .notNull()
     .default("free"),
   points: integer("points").notNull().default(10),
-  pointsResetAt: timestamp("points_reset_at", { withTimezone: true }).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  pointsResetAt: timestamp("points_reset_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 // Sessions table (Better Auth)
@@ -67,7 +66,6 @@ export const accounts = pgTable("accounts", {
   accessTokenExpiresAt: timestamp("access_token_expires_at", { withTimezone: true }),
   refreshTokenExpiresAt: timestamp("refresh_token_expires_at", { withTimezone: true }),
   scope: text("scope"),
-  id: text("id"),
   password: text("password"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
@@ -101,6 +99,7 @@ export const renders = pgTable("renders", {
   audioKey: text("audio_key"),
   audioDuration: integer("audio_duration"),
   lyrics: text("lyrics").notNull(),
+  lyricsSynced: text("lyrics_synced"), // JSON string of synced lyrics
   template: text("template").notNull().default("gradient-dark"),
   videoUrl: text("video_url"),
   videoKey: text("video_key"),

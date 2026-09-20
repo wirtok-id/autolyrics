@@ -1,17 +1,18 @@
 import { betterAuth } from "better-auth";
+import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { db } from "../db/client";
-import {
-  users,
-  sessions,
-  accounts,
-  verificationTokens,
-} from "../db/schema";
+import * as schema from "../db/schema";
 
 export const auth = betterAuth({
-  database: {
-    type: "postgres",
-    url: process.env.DATABASE_URL!,
-  },
+  database: drizzleAdapter(db, {
+    provider: "pg",
+    schema: {
+      user: schema.users,
+      session: schema.sessions,
+      account: schema.accounts,
+      verification: schema.verificationTokens,
+    },
+  }),
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,
@@ -25,40 +26,36 @@ export const auth = betterAuth({
     },
   },
   user: {
-    modelName: "users",
     additionalFields: {
       role: {
         type: "string",
         required: false,
         defaultValue: "user",
+        input: false, // server-owned field
       },
       tier: {
         type: "string",
         required: false,
         defaultValue: "free",
+        input: false, // server-owned field
       },
       points: {
         type: "number",
         required: false,
         defaultValue: 10,
+        input: false, // server-owned field
       },
       pointsResetAt: {
         type: "date",
         required: false,
+        input: false, // server-owned field
       },
     },
   },
-  session: {
-    modelName: "sessions",
-  },
-  account: {
-    modelName: "accounts",
-  },
-  verification: {
-    modelName: "verification_tokens",
-  },
   advanced: {
-    generateId: () => crypto.randomUUID(),
+    database: {
+      generateId: () => crypto.randomUUID(),
+    },
   },
 });
 

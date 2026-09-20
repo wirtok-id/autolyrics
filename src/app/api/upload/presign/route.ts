@@ -18,7 +18,6 @@ export async function POST(request: NextRequest) {
     const allowedTypes = [
       "audio/mpeg",
       "audio/wav",
-      "audio/x-wav",
       "audio/mp4",
       "audio/x-m4a",
     ];
@@ -33,12 +32,12 @@ export async function POST(request: NextRequest) {
     // Generate unique key
     const key = `audio/${createId()}/${fileName}`;
 
-    // TODO: Generate actual presigned URL for Cloudflare R2
+    // TODO: Generate actual presigned URL for Supabase/R2
     // For now, return mock presigned URL
     const mockPresignedUrl = {
-      uploadUrl: `https://mock-r2-bucket.r2.cloudflarestorage.com/${key}?mock-signature`,
+      uploadUrl: `https://placeholder-storage.com/upload/${key}?mock-signature`,
       key,
-      publicUrl: `https://pub-xxx.r2.dev/${key}`,
+      publicUrl: `https://placeholder-storage.com/public/${key}`,
     };
 
     return NextResponse.json({
@@ -46,6 +45,7 @@ export async function POST(request: NextRequest) {
       ...mockPresignedUrl,
     });
   } catch (error) {
+    console.error("Presign error:", error);
     return NextResponse.json(
       { error: "Terjadi kesalahan server" },
       { status: 500 }

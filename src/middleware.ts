@@ -4,7 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 const publicRoutes = ["/", "/login", "/register", "/api/auth"];
 
 // Protected routes that require authentication
-const protectedRoutes = ["/dashboard", "/create", "/result", "/admin"];
+const protectedRoutes = ["/dashboard", "/create", "/result"];
+
+// Admin routes that require admin role
+const adminRoutes = ["/admin"];
 
 // Routes that should redirect to dashboard if already logged in
 const authRoutes = ["/login", "/register"];
@@ -13,7 +16,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
   // Get session token from cookie
-  const sessionToken = request.cookies.get("session")?.value;
+  const sessionToken = request.cookies.get("better-auth.session_token")?.value;
   const isLoggedIn = !!sessionToken;
 
   // Check if the route is public
@@ -26,13 +29,18 @@ export async function middleware(request: NextRequest) {
     (route) => pathname.startsWith(route)
   );
 
+  // Check if the route is admin-only
+  const isAdminRoute = adminRoutes.some(
+    (route) => pathname.startsWith(route)
+  );
+
   // Check if the route is auth-only (login/register)
   const isAuthRoute = authRoutes.some(
     (route) => pathname === route || pathname.startsWith(route + "/")
   );
 
   // If not logged in and trying to access protected route
-  if (!isLoggedIn && isProtectedRoute) {
+  if (!isLoggedIn && (isProtectedRoute || isAdminRoute)) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
