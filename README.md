@@ -27,11 +27,11 @@ Video lirik lagu otomatis. Upload audio + lirik, dapatkan video MP4 siap share.
 - Node.js 20+
 - npm
 
-### Installation
+### Installation 
 
 ```bash
 # Clone repository
-git clone https://github.com/your-username/autolyrics.git
+git clone https://github.com/wirtok-id/autolyrics.git
 cd autolyrics
 
 # Install dependencies
