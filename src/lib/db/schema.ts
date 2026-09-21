@@ -2,6 +2,7 @@ import {
   pgTable,
   text,
   integer,
+  real,
   timestamp,
   uuid,
   boolean,
@@ -97,7 +98,7 @@ export const renders = pgTable("renders", {
     .references(() => users.id),
   audioUrl: text("audio_url"),
   audioKey: text("audio_key"),
-  audioDuration: integer("audio_duration"),
+  audioDuration: real("audio_duration"),
   lyrics: text("lyrics").notNull(),
   lyricsSynced: text("lyrics_synced"), // JSON string of synced lyrics
   template: text("template").notNull().default("gradient-dark"),

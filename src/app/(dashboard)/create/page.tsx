@@ -129,25 +129,27 @@ export default function CreatePage() {
 
       const { uploadUrl, key } = await presignResponse.json();
 
-      // 2. Upload audio to storage
+      // 2. Upload audio using FormData
+      const formData = new FormData();
+      formData.append("file", audioFile!);
+
       const uploadResponse = await fetch(uploadUrl, {
-        method: "PUT",
-        body: audioFile!,
-        headers: {
-          "Content-Type": audioFile!.type,
-        },
+        method: "POST",
+        body: formData,
       });
 
       if (!uploadResponse.ok) {
         throw new Error("Gagal upload audio");
       }
 
+      const { publicUrl } = await uploadResponse.json();
+
       // 3. Create render job
       const renderResponse = await fetch("/api/render/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          audioKey: key,
+          audioKey: publicUrl,
           audioDuration: audioDuration,
           lyrics: lyrics,
           template: selectedTemplate,

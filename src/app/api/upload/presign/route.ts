@@ -32,17 +32,14 @@ export async function POST(request: NextRequest) {
     // Generate unique key
     const key = `audio/${createId()}/${fileName}`;
 
-    // TODO: Generate actual presigned URL for Supabase/R2
-    // For now, return mock presigned URL
-    const mockPresignedUrl = {
-      uploadUrl: `https://placeholder-storage.com/upload/${key}?mock-signature`,
-      key,
-      publicUrl: `https://placeholder-storage.com/public/${key}`,
-    };
-
+    // Return local mock upload URL
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    
     return NextResponse.json({
       success: true,
-      ...mockPresignedUrl,
+      uploadUrl: `${baseUrl}/api/upload/mock`,
+      key,
+      publicUrl: null, // Will be set after upload
     });
   } catch (error) {
     console.error("Presign error:", error);
