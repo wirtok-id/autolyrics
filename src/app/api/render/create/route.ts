@@ -170,7 +170,9 @@ export async function POST(request: NextRequest) {
         );
       }
     } else if (!autoSync) {
-      // No auto-sync: generate linear timing as fallback
+      // No auto-sync: generate linear timing as fallback.
+      // Wrapped with source so the result page can tell linear apart
+      // from Whisper-synced (bare array = whisper, legacy compatible).
       console.log("[RenderCreate] No auto-sync, generating linear timing");
       const lines = lyrics.split("\n").filter((l: string) => l.trim());
       const syncedLyrics = lines.map((line: string, i: number, arr: string[]) => ({
@@ -182,7 +184,7 @@ export async function POST(request: NextRequest) {
 
       await db
         .update(renders)
-        .set({ lyricsSynced: JSON.stringify(syncedLyrics) })
+        .set({ lyricsSynced: JSON.stringify({ source: "linear", lines: syncedLyrics }) })
         .where(eq(renders.id, renderId));
     }
 

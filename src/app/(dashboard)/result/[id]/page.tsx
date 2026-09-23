@@ -21,6 +21,8 @@ import Link from "next/link";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile, toBlobURL } from "@ffmpeg/util";
 import { useRenderStore } from "@/lib/store/render";
+import type { SyncedLyric } from "@/lib/render/lyrics-filter";
+import { buildFilterComplex, buildExecArgs } from "@/lib/render/lyrics-filter";
 
 type RenderStatus = "pending" | "processing" | "done" | "failed";
 
@@ -40,13 +42,6 @@ interface RenderData {
   completedAt: string | null;
 }
 
-interface SyncedLyric {
-  text: string;
-  start: number;
-  end: number;
-  confidence: number;
-}
-
 // Template → background image filename
 const templateBg: Record<string, string> = {
   "gradient-dark": "gradient-dark.png",
@@ -54,55 +49,17 @@ const templateBg: Record<string, string> = {
   minimalist: "minimalist.png",
 };
 
-// Escape special chars for ffmpeg drawtext
-function escapeDrawtext(text: string): string {
-  return text
-    .replace(/\\/g, "\\\\\\\\")
-    .replace(/'/g, "'\\\\\\''")
-    .replace(/:/g, "\\:")
-    .replace(/%/g, "%%")
-    .replace(/\[/g, "\\[")
-    .replace(/\]/g, "\\]");
-}
-
-// Build ffmpeg drawtext filter for lyrics
-function buildLyricsFilter(lyrics: SyncedLyric[]): string {
-  if (lyrics.length === 0) {
-    return "drawtext=fontfile=Inter.ttf:text=' ':fontsize=56:fontcolor=white:x=(w-text_w)/2:y=h-200";
+// Write one text file per lyric line into ffmpeg FS (UTF-8)
+async function writeLyricFiles(
+  ffmpeg: FFmpeg,
+  lyrics: SyncedLyric[]
+): Promise<number> {
+  const encoder = new TextEncoder();
+  for (let i = 0; i < lyrics.length; i++) {
+    await ffmpeg.writeFile(`lyr${i}.txt`, encoder.encode(lyrics[i].text));
   }
-
-  const linesPerPass = 30;
-  const passes: string[] = [];
-
-  for (let i = 0; i < lyrics.length; i += linesPerPass) {
-    const chunk = lyrics.slice(i, i + linesPerPass);
-    const drawTexts = chunk
-      .map((line) => {
-        const escaped = escapeDrawtext(line.text);
-        const start = line.start.toFixed(3);
-        const end = line.end.toFixed(3);
-        return [
-          `drawtext`,
-          `fontfile=Inter.ttf`,
-          `text='${escaped}'`,
-          `fontsize=56`,
-          `fontcolor=white`,
-          `x=(w-text_w)/2`,
-          `y=h-200`,
-          `shadowcolor=black@0.8`,
-          `shadowx=3`,
-          `shadowy=3`,
-          `borderw=3`,
-          `bordercolor=black@0.5`,
-          `enable='between(t\\,${start}\\,${end})'`,
-        ].join(":");
-      })
-      .join(",");
-
-    passes.push(drawTexts);
-  }
-
-  return passes.join(",");
+  console.log(`[Render] Wrote ${lyrics.length} lyric text files to FS`);
+  return lyrics.length;
 }
 
 export default function ResultPage() {
@@ -147,7 +104,18 @@ export default function ResultPage() {
   useEffect(() => {
     const load = async () => {
       setIsLoading(true);
-      await fetchRender();
+      const status = await fetchRender();
+      // Interrupted render (tab closed/refreshed mid-render): recover to pending
+      if (status === "processing") {
+        try {
+          await fetch(`/api/render/status/${renderId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "pending" }),
+          });
+          await fetchRender();
+        } catch { /* ignore */ }
+      }
       setIsLoading(false);
     };
     load();
@@ -189,10 +157,24 @@ export default function ResultPage() {
     reset();
     setStage("loading");
 
+    // Mark as processing server-side (prevents double-render on refresh)
+    try {
+      await fetch(`/api/render/status/${render.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "processing" }),
+      });
+    } catch { /* non-fatal */ }
+
     const ffmpeg = new FFmpeg();
     ffmpegRef.current = ffmpeg;
 
+    // Keep last log lines for error reporting
+    const recentLogs: string[] = [];
     ffmpeg.on("log", ({ message }) => {
+      recentLogs.push(message);
+      if (recentLogs.length > 40) recentLogs.shift();
+
       const timeMatch = message.match(/time=(\d+):(\d+):(\d+\.\d+)/);
       if (timeMatch && render.audioDuration) {
         const h = parseInt(timeMatch[1]);
@@ -283,6 +265,37 @@ export default function ResultPage() {
       await ffmpeg.writeFile("input.mp3", audioData);
       console.log("[Render] Audio written to FS");
 
+      // 4b. Probe real audio duration → exact output cap (-t).
+      // Parse "Duration: HH:MM:SS.xx" from ffmpeg's own header log:
+      // version-proof (the ffprobe method is missing in some bundles).
+      // Browser duration is an estimate; old wasm ffmpeg -shortest lets
+      // ~1.4s of video leak past the audio end.
+      let audioDuration = render.audioDuration || 180;
+      // object holder: TS doesn't track closure writes via CFA
+      const probe: { duration: number | null } = { duration: null };
+      const probeListener = ({ message }: { message: string }) => {
+        const m = message.match(/Duration:\s*(\d+):(\d+):(\d+\.\d+)/);
+        if (m) {
+          const secs =
+            parseInt(m[1]) * 3600 + parseInt(m[2]) * 60 + parseFloat(m[3]);
+          if (secs > 1) probe.duration = secs;
+        }
+      };
+      ffmpeg.on("log", probeListener);
+      try {
+        // No output file → prints header (with Duration) then exits 1.
+        await ffmpeg.exec(["-i", "input.mp3"]);
+      } catch { /* non-fatal */ }
+      ffmpeg.off("log", probeListener);
+
+      const probedDuration = probe.duration;
+      if (probedDuration !== null) {
+        audioDuration = probedDuration;
+        console.log("[Render] Probed audio duration:", probedDuration.toFixed(3), "s");
+      } else {
+        console.log("[Render] Using browser duration:", audioDuration, "s");
+      }
+
       setProgress(20);
 
       // 5. Prepare lyrics
@@ -290,7 +303,9 @@ export default function ResultPage() {
       let lyrics: SyncedLyric[];
 
       if (render.lyricsSynced) {
-        lyrics = JSON.parse(render.lyricsSynced);
+        const parsed = JSON.parse(render.lyricsSynced);
+        // whisper → bare array; linear → { source: "linear", lines: [...] }
+        lyrics = Array.isArray(parsed) ? parsed : parsed.lines ?? [];
         console.log("Using synced lyrics:", lyrics.length, "lines");
         // Log first few for debugging
         lyrics.slice(0, 3).forEach((l, i) =>
@@ -309,36 +324,24 @@ export default function ResultPage() {
       }
 
       // 6. Build filter complex
-      const duration = render.audioDuration || 180;
-      const lyricsFilter = buildLyricsFilter(lyrics);
-
-      // Filter: loop bg image → add lyrics overlay
-      const filterComplex = [
-        `[0:v]loop=loop=-1:size=1:start=0,trim=duration=${duration},setpts=PTS-STARTPTS[bg]`,
-        `[bg]${lyricsFilter}[out]`,
-      ].join(";");
+      const lyricFileCount = await writeLyricFiles(ffmpeg, lyrics);
+      const filterComplex = buildFilterComplex(
+        lyrics,
+        probedDuration ?? audioDuration + 5
+      );
 
       setProgress(25);
 
-      // 7. Run ffmpeg — improved quality
-      await ffmpeg.exec([
-        "-loop", "1",
-        "-i", "bg.png",
-        "-i", "input.mp3",
-        "-filter_complex", filterComplex,
-        "-map", "[out]",
-        "-map", "1:a",
-        "-c:v", "libx264",
-        "-preset", "medium",
-        "-crf", "23",
-        "-pix_fmt", "yuv420p",
-        "-c:a", "aac",
-        "-b:a", "192k",
-        "-shortest",
-        "-movflags", "+faststart",
-        "-y",
-        "output.mp4",
-      ]);
+      // 7. Run ffmpeg — improved quality, verify exit code
+      const exitCode = await ffmpeg.exec(
+        buildExecArgs(filterComplex, probedDuration ?? undefined)
+      );
+
+      if (exitCode !== 0) {
+        const tail = recentLogs.slice(-5).join(" | ");
+        console.error("[Render] ffmpeg exec failed, code:", exitCode, "logs:", tail);
+        throw new Error(`ffmpeg gagal encode (code ${exitCode})`);
+      }
 
       setProgress(90);
 
@@ -366,6 +369,9 @@ export default function ResultPage() {
         await ffmpeg.deleteFile("output.mp4");
         await ffmpeg.deleteFile("bg.png");
         await ffmpeg.deleteFile("Inter.ttf");
+        for (let i = 0; i < lyricFileCount; i++) {
+          await ffmpeg.deleteFile(`lyr${i}.txt`);
+        }
       } catch { /* ignore */ }
 
       setVideoUrl(videoUrl);
@@ -386,6 +392,10 @@ export default function ResultPage() {
 
       setError(errorMessage);
     } finally {
+      // Always free WASM memory (~500MB)
+      try {
+        ffmpegRef.current?.terminate();
+      } catch { /* ignore */ }
       ffmpegRef.current = null;
     }
   };
@@ -617,11 +627,20 @@ export default function ResultPage() {
               <div className="flex items-center justify-between py-3 border-b border-white/5">
                 <span className="text-sm text-foreground-muted">Sync Status</span>
                 <span className="text-sm font-medium">
-                  {render.lyricsSynced ? (
-                    <span className="text-green-400">✓ Whisper AI synced</span>
-                  ) : (
-                    <span className="text-yellow-400">⚠ Linear fallback</span>
-                  )}
+                  {(() => {
+                    if (!render.lyricsSynced) {
+                      return <span className="text-yellow-400">⚠ Linear fallback</span>;
+                    }
+                    try {
+                      const parsed = JSON.parse(render.lyricsSynced);
+                      if (!Array.isArray(parsed) && parsed?.source === "linear") {
+                        return <span className="text-yellow-400">⚠ Linear (manual timing)</span>;
+                      }
+                      return <span className="text-green-400">✓ Whisper AI synced</span>;
+                    } catch {
+                      return <span className="text-yellow-400">⚠ Linear fallback</span>;
+                    }
+                  })()}
                 </span>
               </div>
               <div className="flex items-center justify-between py-3 border-b border-white/5">
