@@ -4,6 +4,9 @@ import { db } from "@/lib/db/client";
 import { renders, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { createId, getNextMondayReset, COOLDOWN_MS } from "@/lib/utils";
+import { readFile } from "fs/promises";
+import { join } from "path";
+import { sequentialAlign } from "@/lib/align";
 
 // POST /api/render/create
 export async function POST(request: NextRequest) {
@@ -22,6 +25,8 @@ export async function POST(request: NextRequest) {
     const userId = session.user.id;
     const body = await request.json();
     const { audioKey, audioDuration, lyrics, template, autoSync } = body;
+
+    console.log("[RenderCreate] Request:", { audioKey, audioDuration, template, autoSync });
 
     // Validation
     if (!lyrics || !template) {
@@ -84,7 +89,7 @@ export async function POST(request: NextRequest) {
     if (user.role !== "admin") {
       const newPoints = user.points - pointsCost;
       const needsReset = !user.pointsResetAt || new Date() >= user.pointsResetAt;
-      
+
       await db
         .update(users)
         .set({
@@ -94,38 +99,17 @@ export async function POST(request: NextRequest) {
         .where(eq(users.id, userId));
     }
 
-    // Create render record
+    // Create render record first (needed for whisper sync)
     const renderId = createId();
-    
-    // Auto-sync lyrics if enabled
-    let syncedLyricsJson = null;
-    if (autoSync && audioKey) {
-      try {
-        // Note: In production, we'd pass the actual audio file
-        // For now, we'll skip the actual whisper call and use linear sync
-        syncedLyricsJson = JSON.stringify(
-          lyrics.split("\n")
-            .filter((l: string) => l.trim())
-            .map((line: string, i: number, arr: string[]) => ({
-              text: line,
-              start: (i / arr.length) * audioDuration,
-              end: ((i + 1) / arr.length) * audioDuration,
-              confidence: 0.5,
-            }))
-        );
-      } catch (error) {
-        console.error("Auto-sync failed, using linear:", error);
-      }
-    }
 
     await db.insert(renders).values({
       id: renderId,
       userId,
-      audioUrl: null,
+      audioUrl: audioKey || null,
       audioKey: audioKey || null,
       audioDuration: audioDuration || null,
       lyrics,
-      lyricsSynced: syncedLyricsJson,
+      lyricsSynced: null,
       template: template || "gradient-dark",
       videoUrl: null,
       videoKey: null,
@@ -134,69 +118,174 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
     });
 
-    // TODO: Trigger actual render (Modal/Render.com)
-    // For now, use mock render
-    const { renderVideo } = await import("@/lib/render");
-    
-    setTimeout(async () => {
+    console.log("[RenderCreate] Created render record:", renderId);
+
+    // Auto-sync lyrics via Whisper (server-side)
+    if (autoSync && audioKey) {
+      console.log("[RenderCreate] Starting Whisper sync...");
       try {
-        // Update status to processing
-        await db
-          .update(renders)
-          .set({ status: "processing" })
-          .where(eq(renders.id, renderId));
+        const syncedResult = await callWhisperSync(audioKey, lyrics, renderId, audioDuration);
 
-        // Parse synced lyrics
-        const parsedLyrics = syncedLyricsJson 
-          ? JSON.parse(syncedLyricsJson)
-          : lyrics.split("\n")
-              .filter((l: string) => l.trim())
-              .map((line: string, i: number, arr: string[]) => ({
-                text: line,
-                start: (i / arr.length) * audioDuration,
-                end: ((i + 1) / arr.length) * audioDuration,
-                confidence: 0.5,
-              }));
+        if (syncedResult && syncedResult.synced) {
+          console.log("[RenderCreate] Whisper sync successful:", syncedResult.segmentCount, "segments");
+          // lyricsSynced already saved to DB by callWhisperSync
+        } else {
+          console.error("[RenderCreate] Whisper sync failed:", syncedResult);
+          // Delete the render and refund points — don't let user proceed with bad sync
+          await db.delete(renders).where(eq(renders.id, renderId));
 
-        // Call render function
-        const result = await renderVideo({
-          id: renderId,
-          audioUrl: `https://placeholder.com/audio/${audioKey}`,
-          lyrics: parsedLyrics,
-          template: template || "gradient-dark",
-          userId,
-          duration: audioDuration,
-        });
+          // Refund points
+          if (user.role !== "admin") {
+            const currentPoints = user.points;
+            const refundPoints = currentPoints + pointsCost;
+            await db
+              .update(users)
+              .set({ points: refundPoints })
+              .where(eq(users.id, userId));
+          }
 
-        // Update status to done
-        await db
-          .update(renders)
-          .set({
-            status: "done",
-            videoUrl: result.videoUrl,
-            completedAt: new Date(),
-          })
-          .where(eq(renders.id, renderId));
-      } catch (error) {
-        console.error("Render failed:", error);
-        await db
-          .update(renders)
-          .set({ status: "failed", errorMessage: "Render gagal" })
-          .where(eq(renders.id, renderId));
+          return NextResponse.json(
+            {
+              error: "Gagal sinkronisasi lirik dengan audio. Pastikan audio sesuai dengan lirik yang dimasukkan.",
+              whisperError: syncedResult?.error || syncedResult?.reason || "unknown",
+            },
+            { status: 422 }
+          );
+        }
+      } catch (err) {
+        console.error("[RenderCreate] Whisper sync exception:", err);
+
+        // Delete render and refund
+        await db.delete(renders).where(eq(renders.id, renderId));
+        if (user.role !== "admin") {
+          await db
+            .update(users)
+            .set({ points: user.points + pointsCost })
+            .where(eq(users.id, userId));
+        }
+
+        return NextResponse.json(
+          { error: "Gagal sinkronisasi lirik. Coba lagi." },
+          { status: 500 }
+        );
       }
-    }, 100);
+    } else if (!autoSync) {
+      // No auto-sync: generate linear timing as fallback
+      console.log("[RenderCreate] No auto-sync, generating linear timing");
+      const lines = lyrics.split("\n").filter((l: string) => l.trim());
+      const syncedLyrics = lines.map((line: string, i: number, arr: string[]) => ({
+        text: line,
+        start: (i / arr.length) * audioDuration,
+        end: ((i + 1) / arr.length) * audioDuration,
+        confidence: 1.0, // linear is "exact" since user chose manual
+      }));
+
+      await db
+        .update(renders)
+        .set({ lyricsSynced: JSON.stringify(syncedLyrics) })
+        .where(eq(renders.id, renderId));
+    }
 
     return NextResponse.json({
       success: true,
       renderId,
       pointsCost,
-      message: "Render berhasil dimulai",
+      message: "Render berhasil dibuat. Klik Mulai Render untuk memulai.",
     });
   } catch (error) {
-    console.error("Render create error:", error);
+    console.error("[RenderCreate] Error:", error);
     return NextResponse.json(
       { error: "Terjadi kesalahan server" },
       { status: 500 }
     );
   }
+}
+
+// Server-side Whisper sync function
+async function callWhisperSync(
+  audioKey: string,
+  lyrics: string,
+  renderId: string,
+  audioDuration: number
+): Promise<{ synced: boolean; segmentCount?: number; error?: string; reason?: string }> {
+  const groqApiKey = process.env.GROQ_API_KEY;
+  if (!groqApiKey) {
+    return { synced: false, reason: "no_api_key", error: "GROQ_API_KEY tidak dikonfigurasi" };
+  }
+
+  // Read audio file from disk
+  const fullPath = join(process.cwd(), "public", audioKey);
+  let audioBuffer: Buffer;
+  try {
+    audioBuffer = await readFile(fullPath);
+  } catch (err) {
+    return { synced: false, reason: "audio_not_found", error: `File tidak ditemukan: ${fullPath}` };
+  }
+
+  // Determine MIME type
+  const ext = audioKey.split(".").pop()?.toLowerCase() || "mp3";
+  const mimeMap: Record<string, string> = {
+    mp3: "audio/mpeg",
+    wav: "audio/wav",
+    m4a: "audio/x-m4a",
+    mp4: "audio/mp4",
+  };
+  const mimeType = mimeMap[ext] || "audio/mpeg";
+
+  // Call Groq Whisper
+  console.log("[WhisperSync] Calling Groq API...");
+  const formData = new FormData();
+  // Copy Buffer to fresh ArrayBuffer for Blob compatibility
+  const audioArrBuf = new ArrayBuffer(audioBuffer.byteLength);
+  new Uint8Array(audioArrBuf).set(new Uint8Array(audioBuffer));
+  const audioBlob = new Blob([audioArrBuf], { type: mimeType });
+  formData.append("file", audioBlob, `audio.${ext}`);
+  formData.append("model", "whisper-large-v3-turbo");
+  formData.append("response_format", "verbose_json");
+  formData.append("timestamp_granularities[]", "segment");
+
+  const whisperResponse = await fetch(
+    "https://api.groq.com/openai/v1/audio/transcriptions",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${groqApiKey}`,
+      },
+      body: formData,
+    }
+  );
+
+  if (!whisperResponse.ok) {
+    const errorText = await whisperResponse.text();
+    console.error("[WhisperSync] Groq error:", whisperResponse.status, errorText);
+    return { synced: false, reason: "whisper_error", error: errorText };
+  }
+
+  const whisperData = await whisperResponse.json();
+  const segments = whisperData.segments || [];
+  console.log("[WhisperSync] Got", segments.length, "segments");
+
+  if (segments.length === 0) {
+    return { synced: false, reason: "no_segments", error: "Whisper tidak mengembalikan segment" };
+  }
+
+  // Parse lyrics
+  const lyricLines = lyrics
+    .split("\n")
+    .map((line: string) => line.trim())
+    .filter((line: string) => line.length > 0);
+
+  // Sequential forced alignment
+  console.log("[WhisperSync] Sequential alignment:", lyricLines.length, "lyrics,", segments.length, "segments");
+  const alignedLyrics = sequentialAlign(lyricLines, segments, audioDuration);
+
+  // Save to DB
+  await db
+    .update(renders)
+    .set({ lyricsSynced: JSON.stringify(alignedLyrics) })
+    .where(eq(renders.id, renderId));
+
+  console.log("[WhisperSync] Saved aligned lyrics to DB:", alignedLyrics.length, "lines");
+
+  return { synced: true, segmentCount: segments.length };
 }

@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.7.5",
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
     "@neondatabase/serverless": "^0.10.0",
     "better-auth": "^1.1.0",
     "class-variance-authority": "^0.7.1",
@@ -31,6 +33,7 @@
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "canvas": "^3.2.3",
     "dotenv": "^18.0.1",
     "drizzle-kit": "^0.31.0",
     "eslint": "^9.0.0",

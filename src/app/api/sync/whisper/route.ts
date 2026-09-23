@@ -1,50 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { db } from "@/lib/db/client";
+import { renders } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { readFile } from "fs/promises";
+import { join } from "path";
+import { sequentialAlign, type WhisperSegment } from "@/lib/align";
 
-interface WhisperSegment {
-  start: number;
-  end: number;
-  text: string;
-}
+// ---- API Handler ----
 
-interface AlignedLyric {
-  text: string;
-  start: number;
-  end: number;
-  confidence: number;
-}
-
-// Simple fuzzy match score
-function similarity(a: string, b: string): number {
-  const aLower = a.toLowerCase().trim();
-  const bLower = b.toLowerCase().trim();
-  
-  if (aLower === bLower) return 1;
-  if (aLower.includes(bLower) || bLower.includes(aLower)) return 0.8;
-  
-  // Simple word overlap
-  const aWords = aLower.split(/\s+/);
-  const bWords = bLower.split(/\s+/);
-  const intersection = aWords.filter(w => bWords.includes(w));
-  const union = new Set([...aWords, ...bWords]);
-  
-  return intersection.length / union.size;
-}
-
-// Linear estimate when no match found
-function linearEstimate(
-  lineIndex: number, 
-  totalLines: number, 
-  totalDuration: number
-): { start: number; end: number } {
-  const segmentDuration = totalDuration / totalLines;
-  return {
-    start: lineIndex * segmentDuration,
-    end: (lineIndex + 1) * segmentDuration,
-  };
-}
-
-// POST /api/sync/whisper
 export async function POST(request: NextRequest) {
   try {
     const session = await auth.api.getSession({
@@ -59,30 +23,80 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { audioBase64, audioMimeType, lyrics, audioDuration } = body;
+    const { renderId, lyrics } = body;
 
-    // Validation
-    if (!audioBase64 || !lyrics || !audioDuration) {
+    console.log("[Whisper] Request:", { renderId, lyricsLength: lyrics?.length });
+
+    if (!renderId || !lyrics) {
       return NextResponse.json(
-        { error: "audioBase64, lyrics, dan audioDuration wajib diisi" },
+        { error: "renderId dan lyrics wajib diisi" },
         { status: 400 }
       );
     }
 
-    // Check if Groq API key exists
-    const groqApiKey = process.env.GROQ_API_KEY;
-    if (!groqApiKey) {
-      console.log("GROQ_API_KEY not set, using linear sync");
-      return NextResponse.json({ synced: false, reason: "no_api_key" });
+    // Get render
+    const render = await db.query.renders.findFirst({
+      where: eq(renders.id, renderId),
+    });
+
+    if (!render) {
+      return NextResponse.json(
+        { error: "Render tidak ditemukan" },
+        { status: 404 }
+      );
     }
 
-    // Convert base64 to buffer
-    const audioBuffer = Buffer.from(audioBase64, "base64");
+    if (render.userId !== session.user.id) {
+      return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
+    }
 
-    // Call Groq Whisper API
+    // Read audio file
+    const audioPath = render.audioKey || render.audioUrl;
+    if (!audioPath) {
+      return NextResponse.json({ synced: false, reason: "no_audio" });
+    }
+
+    const fullPath = join(process.cwd(), "public", audioPath);
+    console.log("[Whisper] Reading audio:", fullPath);
+
+    let audioBuffer: Buffer;
+    try {
+      audioBuffer = await readFile(fullPath);
+    } catch (err) {
+      console.error("[Whisper] Failed to read audio:", err);
+      return NextResponse.json({ synced: false, reason: "audio_not_found" });
+    }
+
+    console.log("[Whisper] Audio size:", audioBuffer.length, "bytes");
+
+    // Check Groq API key
+    const groqApiKey = process.env.GROQ_API_KEY;
+    if (!groqApiKey) {
+      console.error("[Whisper] GROQ_API_KEY not set!");
+      return NextResponse.json({
+        synced: false,
+        reason: "no_api_key",
+        error: "GROQ_API_KEY tidak dikonfigurasi",
+      });
+    }
+
+    // MIME type
+    const ext = audioPath.split(".").pop()?.toLowerCase() || "mp3";
+    const mimeMap: Record<string, string> = {
+      mp3: "audio/mpeg",
+      wav: "audio/wav",
+      m4a: "audio/x-m4a",
+      mp4: "audio/mp4",
+    };
+    const mimeType = mimeMap[ext] || "audio/mpeg";
+
+    // Call Groq Whisper
+    console.log("[Whisper] Calling Groq API...");
     const formData = new FormData();
-    const audioBlob = new Blob([audioBuffer], { type: audioMimeType || "audio/mpeg" });
-    formData.append("file", audioBlob, "audio.mp3");
+    const audioArrBuf = new ArrayBuffer(audioBuffer.byteLength);
+    new Uint8Array(audioArrBuf).set(new Uint8Array(audioBuffer));
+    const audioBlob = new Blob([audioArrBuf], { type: mimeType });
+    formData.append("file", audioBlob, `audio.${ext}`);
     formData.append("model", "whisper-large-v3-turbo");
     formData.append("response_format", "verbose_json");
     formData.append("timestamp_granularities[]", "segment");
@@ -91,75 +105,78 @@ export async function POST(request: NextRequest) {
       "https://api.groq.com/openai/v1/audio/transcriptions",
       {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${groqApiKey}`,
-        },
+        headers: { Authorization: `Bearer ${groqApiKey}` },
         body: formData,
       }
     );
 
     if (!whisperResponse.ok) {
       const errorText = await whisperResponse.text();
-      console.error("Groq Whisper error:", errorText);
-      return NextResponse.json({ synced: false, reason: "whisper_error" });
+      console.error("[Whisper] Groq error:", whisperResponse.status, errorText);
+      return NextResponse.json({
+        synced: false,
+        reason: "whisper_error",
+        error: errorText,
+      });
     }
 
     const whisperData = await whisperResponse.json();
-    const segments: WhisperSegment[] = whisperData.segments || [];
+    const rawSegments: WhisperSegment[] = whisperData.segments || [];
 
-    if (segments.length === 0) {
-      return NextResponse.json({ synced: false, reason: "no_segments" });
+    console.log("[Whisper] Got", rawSegments.length, "raw segments from Whisper:");
+    rawSegments.forEach((seg, i) =>
+      console.log(
+        `  [${i}] "${seg.text}" @ ${seg.start.toFixed(2)}s-${seg.end.toFixed(2)}s`
+      )
+    );
+
+    if (rawSegments.length === 0) {
+      return NextResponse.json({
+        synced: false,
+        reason: "no_segments",
+        error: "Whisper tidak mengembalikan segment",
+      });
     }
 
-    // Parse lyrics into lines
+    // Parse lyrics
     const lyricLines = lyrics
       .split("\n")
       .map((line: string) => line.trim())
       .filter((line: string) => line.length > 0);
 
-    // Align lyrics to segments
-    const alignedLyrics: AlignedLyric[] = lyricLines.map(
-      (line: string, index: number) => {
-        // Find best matching segment
-        let bestScore = 0;
-        let bestSegment: WhisperSegment | null = null;
-
-        for (const segment of segments) {
-          const score = similarity(line, segment.text);
-          if (score > bestScore) {
-            bestScore = score;
-            bestSegment = segment;
-          }
-        }
-
-        // Use matched segment or linear estimate
-        if (bestScore > 0.6 && bestSegment) {
-          return {
-            text: line,
-            start: bestSegment.start,
-            end: bestSegment.end,
-            confidence: bestScore,
-          };
-        } else {
-          const estimate = linearEstimate(index, lyricLines.length, audioDuration);
-          return {
-            text: line,
-            start: estimate.start,
-            end: estimate.end,
-            confidence: 0.5,
-          };
-        }
-      }
+    console.log(
+      "[Whisper] Aligning",
+      lyricLines.length,
+      "lyric lines with",
+      rawSegments.length,
+      "Whisper segments"
     );
+
+    // Sequential forced alignment
+    const alignedLyrics = sequentialAlign(
+      lyricLines,
+      rawSegments,
+      render.audioDuration || 180
+    );
+
+    // Save to DB
+    await db
+      .update(renders)
+      .set({ lyricsSynced: JSON.stringify(alignedLyrics) })
+      .where(eq(renders.id, renderId));
+
+    console.log("[Whisper] Saved to DB:", alignedLyrics.length, "lines");
 
     return NextResponse.json({
       synced: true,
       lyrics: alignedLyrics,
       whisperText: whisperData.text,
-      segmentCount: segments.length,
+      segmentCount: rawSegments.length,
     });
   } catch (error) {
-    console.error("Sync whisper error:", error);
-    return NextResponse.json({ synced: false, reason: "server_error" });
+    console.error("[Whisper] Server error:", error);
+    return NextResponse.json(
+      { synced: false, reason: "server_error", error: String(error) }
+    );
   }
 }

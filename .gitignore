@@ -33,3 +33,6 @@ next-env.d.ts
 # database
 *.db
 *.db-journal
+
+# uploads
+/public/uploads/
